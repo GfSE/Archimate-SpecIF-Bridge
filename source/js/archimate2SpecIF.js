@@ -1,4 +1,4 @@
-/* 	Transform TOGAF Open Exchange to SpecIF
+/* 	Transform an Open Group Archimate Open Exchange File to SpecIF
 	Author: se@enso-managers.de
 	License: Apache 2.0
 */
@@ -44,10 +44,10 @@ function TOGAF2Specif( xmlString, opts ) {
 		opts.strAnnotationFolder = "Text Annotations";
 	if( !opts.strRoleType ) 
 		opts.strRoleType = "SpecIF:Role";  */
-	if( !opts.strTogafType ) 
-		opts.strTogafType = 'SpecIF:TOGAF';
-	if( !opts.strTogafFolder ) 
-		opts.strTogafFolder = "TOGAF Enterprise Architecture Models";
+	if( !opts.strArchimateType ) 
+		opts.strArchimateType = 'SpecIF:Archimate';
+/*	if( !opts.strArchimateFolder ) 
+		opts.strArchimateFolder = "Archimate Enterprise Architecture Models"; */
 	
 	let parser = new DOMParser(),
 		xmlDoc = parser.parseFromString(xmlString, "text/xml");
@@ -419,7 +419,7 @@ function TOGAF2Specif( xmlString, opts ) {
 			value: model.description || ''
 		},{
 			class: "PC-Type",
-			value: opts.strTogafType
+			value: opts.strArchimateType
 		}],
 		changedAt: opts.fileDate
 	});
@@ -430,7 +430,7 @@ function TOGAF2Specif( xmlString, opts ) {
 	return model;
 
 /*	// Reference used files,
-	// - the BPMN file:
+	// - the Archimate Open Exchange file:
 	model.files = [{
 		id: 'F-'+simpleHash(opts.fileName),
 		title: opts.fileName,
