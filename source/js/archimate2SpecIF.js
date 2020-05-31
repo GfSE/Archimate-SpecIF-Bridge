@@ -95,85 +95,8 @@ function TOGAF2Specif( xmlString, opts ) {
 		}
 	);
 
-	// 2. Transform the diagrams:
-	Array.from(xmlDoc.querySelectorAll("view"), 
-		(vi)=>{
-			let dId = vi.getAttribute('identifier'),
-				r = {
-					id: dId,
-				//	title: '',
-					class: "RC-Diagram",
-					properties: [],
-					changedAt: opts.fileDate
-				};
-				
-				// The view's nodes are hierarchically ordered: 
-				function getNode(nd) {
-					let ref = nd.getAttribute('elementRef');
-					if( ref )
-						model.statements.push({
-							id: genID('S-'),
-							class: "SC-shows",
-							subject: dId,
-							object: ref,
-							changedAt: opts.fileDate
-						});
-					Array.from( nd.children, 
-						(ch)=>{
-							if( ch.tagName=='node' )
-								getNode(ch)
-						}
-					)
-				}
-			
-			// Additional attributes such as title and description:
-			Array.from( vi.children, 
-				(ch)=>{
-					switch( ch.tagName ) {
-						case 'name': 
-							r.title = ch.innerHTML;
-							break;
-						case 'documentation':
-							r.properties.push({
-								class: "PC-Text",
-								value: ch.innerHTML
-							});
-							break;
-						case 'node':
-							// ToDo: Include nodes of xsi:type "Label" = Note elements
-							// This node is shown by the diagram in the outer loop;
-							// it is of xsi:type "Element":
-							getNode(ch);
-					/*		break;
-						case 'connection':
-							// This connection is shown by the diagram in the outer loop:
-							model.statements.push({
-								id: genID('S-'),
-								class: "SC-shows",
-								subject: dId,
-								object: ch.getAttribute('relationshipRef'),
-								changedAt: opts.fileDate  
-							})  */
-					}
-				}
-			);
-			
-			// ToDo: Add diagram reference (but we need the diagram, first).
-			
-			// Store the TOGAF viewpoint:
-			let vp = vi.getAttribute('viewpoint');
-			if( vp )
-				r.properties.push({
-					class: "PC-Type", 
-					value: vp+' Viewpoint'
-				});
-			
-			model.resources.push(r)
-		}
-	);
-
-	// 3. Transform the model elements:
-	L = Array.from(xmlDoc.querySelectorAll("element"), 
+	// 2. Transform the model elements:
+	Array.from(xmlDoc.querySelectorAll("element"), 
 		(el)=>{
 			let r = {
 					id: el.getAttribute('identifier'),
@@ -264,8 +187,8 @@ function TOGAF2Specif( xmlString, opts ) {
 		}
 	);
 	
-	// 4. Transform the relations:
-	L = Array.from(xmlDoc.querySelectorAll("relationship"), 
+	// 3. Transform the relations:
+	Array.from(xmlDoc.querySelectorAll("relationship"), 
 		(rs)=>{
 			let s = {
 					id: rs.getAttribute('identifier'),
@@ -288,6 +211,9 @@ function TOGAF2Specif( xmlString, opts ) {
 					break;
 				case 'Serving':
 					s['class'] = "SC-serves";
+					break;
+				case 'Influence':
+					s['class'] = "SC-influences";
 					break;
 				case 'Triggering':
 					s['class'] = "SC-triggers";
@@ -320,7 +246,10 @@ function TOGAF2Specif( xmlString, opts ) {
 					console.warn('Relationship: Unknown xsi:type ', ty)
 			};
 
-			if( s['class'] ) {
+			// Store a relation, only if it has a known class and when both subject and object have been regognized:
+			if( s['class'] 
+				&& indexById(model.resources,s.subject)>-1
+				&& indexById(model.resources,s.object)>-1 ) {
 				// Additional attributes such as title and description:
 				Array.from( rs.children, 
 					(ch)=>{
@@ -339,9 +268,121 @@ function TOGAF2Specif( xmlString, opts ) {
 		}
 	);
 
-	// 5. The hierarchy with pointers to all resources:
+	// 4. Transform the diagrams:
+	Array.from(xmlDoc.querySelectorAll("view"), 
+		(vi)=>{
+			let dId = vi.getAttribute('identifier'),
+				r = {
+					id: dId,
+				//	title: '',
+					class: "RC-Diagram",
+					properties: [],
+					changedAt: opts.fileDate
+				};
+				
+				// The view's nodes are hierarchically ordered: 
+				function getNode(nd) {
+					let ref = nd.getAttribute('elementRef');
+					// Store a relation, only if the element has been regognized:
+					if( ref && indexById(model.resources,ref)>-1 )
+						model.statements.push({
+							id: genID('S-'),
+							class: "SC-shows",
+							subject: dId,
+							object: ref,
+							changedAt: opts.fileDate
+						});
+					Array.from( nd.children, 
+						(ch)=>{
+							if( ch.tagName=='node' )
+								getNode(ch)
+						}
+					)
+				}
+			
+			// Additional attributes such as title and description:
+			Array.from( vi.children, 
+				(ch)=>{
+					switch( ch.tagName ) {
+						case 'name': 
+							r.title = ch.innerHTML;
+							break;
+						case 'documentation':
+							r.properties.push({
+								class: "PC-Text",
+								value: ch.innerHTML
+							});
+							break;
+						case 'node':
+							// ToDo: Include nodes of xsi:type "Label" = Note elements
+							// This node is shown by the diagram in the outer loop;
+							// it is of xsi:type "Element":
+							getNode(ch);
+					/*		break;
+						case 'connection':
+							// This connection is shown by the diagram in the outer loop:
+							model.statements.push({
+								id: genID('S-'),
+								class: "SC-shows",
+								subject: dId,
+								object: ch.getAttribute('relationshipRef'),
+								changedAt: opts.fileDate  
+							})  */
+					}
+				}
+			);
+			
+			// ToDo: Add diagram reference (but we need the diagram, first).
+			
+			// Store the TOGAF viewpoint:
+			let vp = vi.getAttribute('viewpoint');
+			if( vp )
+				r.properties.push({
+					class: "PC-Type", 
+					value: vp+' Viewpoint'
+				});
+			
+			model.resources.push(r)
+		}
+	);
+
+	// 5. Add the resource for the hierarchy root:
+	model.resources.push({
+		id: hId,
+		title: model.title,
+		class: "RC-Folder",
+		properties: [{
+			class: "PC-Text",
+			value: model.description || ''
+		},{
+			class: "PC-Type",
+			value: opts.strArchimateType
+		}],
+		changedAt: opts.fileDate
+	});
+	// Add the tree:
+	model.hierarchies = NodeList(model.resources);
+	
+/*	// Reference used files,
+	// - the Archimate Open Exchange file:
+	model.files = [{
+		id: 'F-'+simpleHash(opts.fileName),
+		title: opts.fileName,
+		blob: new Blob([xmlString], {type: opts.mimeType}),
+		type: opts.mimeType,
+		changedAt: opts.fileDate
+	}];  */
+
+	console.debug('TOGAF',model);
+	return model;
+
+
+// =======================================
+// called functions:	
+
+	// The hierarchy with pointers to all resources:
 	function NodeList(res) {
-		// 5.1 first add the folders:
+		// a) first add the folders:
 		let nL =  [{
 			id: "H-"+hId,
 			resource: hId,
@@ -378,7 +419,7 @@ function TOGAF2Specif( xmlString, opts ) {
 			}],
 			changedAt: opts.fileDate
 		}];
-		// 5.2 Add diagrams to it's folder in original order:
+		// b) Add diagrams to it's folder in original order:
 		res.forEach( function(r) { 
 			let nd = {
 				id: genID("N-"),
@@ -389,7 +430,7 @@ function TOGAF2Specif( xmlString, opts ) {
 				nL[0].nodes[0].nodes.push(nd);
 		});
 		
-		// 5.3 Add Actors, States and Events to the respective folders in alphabetical order:
+		// c) Add Actors, States and Events to the respective folders in alphabetical order:
 		if( res.length>1 )
 			res.sort( function(bim, bam) {
 						bim = bim.title.toLowerCase();
@@ -409,38 +450,6 @@ function TOGAF2Specif( xmlString, opts ) {
 		});
 		return nL
 	};
-	// 6. Add the resource for the hierarchy root:
-	model.resources.push({
-		id: hId,
-		title: model.title,
-		class: "RC-Folder",
-		properties: [{
-			class: "PC-Text",
-			value: model.description || ''
-		},{
-			class: "PC-Type",
-			value: opts.strArchimateType
-		}],
-		changedAt: opts.fileDate
-	});
-	// Add the tree:
-	model.hierarchies = NodeList(model.resources);
-	
-	console.debug('TOGAF',model);
-	return model;
-
-/*	// Reference used files,
-	// - the Archimate Open Exchange file:
-	model.files = [{
-		id: 'F-'+simpleHash(opts.fileName),
-		title: opts.fileName,
-		blob: new Blob([xmlString], {type: opts.mimeType}),
-		type: opts.mimeType,
-		changedAt: opts.fileDate
-	}];  */
-
-// =======================================
-// called functions:	
 
 	// The dataTypes:
 	function DataTypes() {
@@ -577,7 +586,7 @@ function TOGAF2Specif( xmlString, opts ) {
 			// ToDo: Make more specific with respect to subjectClasses and objectClasses, if possible
 			id: "SC-isAssignedTo",
 			title: opts.strNamespace+"isAssignedTo",
-			description: "Statement: An model-element is assigned to a model-element",
+			description: "Statement: The allocation of responsibility, performance of behavior, or execution",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Actor", "RC-State", "RC-Event"],
 			objectClasses: ["RC-Actor", "RC-State", "RC-Event"],
@@ -609,7 +618,7 @@ function TOGAF2Specif( xmlString, opts ) {
 		},{
 			id: "SC-realizes",
 			title: "SpecIF:realizes",
-			description: "Statement: Actor (Component) realizes an Actor (Function)",
+			description: "Statement: An entity plays a critical role in the creation, achievement, sustenance, or operation of a more abstract entity.",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Actor"],
 			objectClasses: ["RC-Actor"],
@@ -617,15 +626,23 @@ function TOGAF2Specif( xmlString, opts ) {
 		},{
 			id: "SC-serves",
 			title: opts.strNamespace+"serves",
-			description: "Statement: Actor (Service) serves an Actor (Component, Function)",
+			description: "Statement: An element provides its functionality to another element.",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Actor"],
 			objectClasses: ["RC-Actor"],
 			changedAt: opts.fileDate
 		},{
+			id: "SC-influences",
+			title: opts.strNamespace+"influences",
+			description: "Statement: An element affects the implementation or achievement of some motivation element.",
+			instantiation: ['auto'],
+			subjectClasses: ["RC-Actor","RC-State"],
+			objectClasses: ["RC-Actor","RC-State"],
+			changedAt: opts.fileDate
+		},{
 			id: "SC-isAssociatedWith",
 			title: "SpecIF:isAssociatedWith",
-			description: "Statement: Actor (Component,Function) is associated with an Actor (Component,Function)",
+			description: "Statement: Actor (Component,Function) is associated with an Actor (Component,Function).",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Actor"],
 			objectClasses: ["RC-Actor"],
@@ -633,7 +650,7 @@ function TOGAF2Specif( xmlString, opts ) {
 		},{
 			id: "SC-stores",
 			title: "SpecIF:stores",
-			description: "Statement: Actor (Role, Function) writes and reads State (Information)",
+			description: "Statement: Actor (Role, Function) writes and reads State (Information).",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Actor"],
 			objectClasses: ["RC-State"],
@@ -641,7 +658,7 @@ function TOGAF2Specif( xmlString, opts ) {
 		},{
 			id: "SC-writes",
 			title: "SpecIF:writes",
-			description: "Statement: Actor (Role, Function) writes State (Information)",
+			description: "Statement: Actor (Role, Function) writes State (Information).",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Actor"],
 			objectClasses: ["RC-State"],
@@ -673,7 +690,7 @@ function TOGAF2Specif( xmlString, opts ) {
 		},{
 			id: "SC-triggers",
 			title: "SpecIF:triggers",
-			description: "A FMC:Event 'triggers' a FMC:Actor.",
+			description: "A temporal or causal relationship between elements.",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Event"],
 			objectClasses: ["RC-Actor"],
