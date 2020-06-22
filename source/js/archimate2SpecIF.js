@@ -4,7 +4,7 @@
 */
 
 // Durchlaufen der XML Datei und Überführen der Elemente in das SpecIF Format
-function TOGAF2Specif( xmlString, opts ) {
+function Archimate2Specif( xmlString, opts ) {
 	"use strict";
 	if( typeof(opts)!='object' || !opts.fileName ) return null;
 	if( !opts.fileDate ) 
@@ -20,8 +20,6 @@ function TOGAF2Specif( xmlString, opts ) {
 	if( typeof(opts.isIE)!='boolean' )
 		opts.isIE = /MSIE |rv:11.0/i.test( navigator.userAgent );
 
-	if( !opts.strNamespace ) 
-		opts.strNamespace = "archimate:";
 	if( !opts.strFolderType ) 
 		opts.strFolderType = "SpecIF:Heading";
 	if( !opts.strDiagramsType ) 
@@ -44,6 +42,8 @@ function TOGAF2Specif( xmlString, opts ) {
 		opts.strAnnotationFolder = "Text Annotations";
 	if( !opts.strRoleType ) 
 		opts.strRoleType = "SpecIF:Role";  */
+	if( !opts.strNamespace ) 
+		opts.strNamespace = "Archimate:";
 	if( !opts.strArchimateType ) 
 		opts.strArchimateType = 'SpecIF:Archimate';
 /*	if( !opts.strArchimateFolder ) 
@@ -72,7 +72,7 @@ function TOGAF2Specif( xmlString, opts ) {
 
 	const nbsp = '&#160;', // non-breakable space
 		apx = simpleHash(model.id),
-		hId = 'TOGAF-' + apx;
+		hId = 'Archimate-' + apx;
 
 	model["$schema"] = "https://specif.de/v1.0/schema.json";
 	model.dataTypes = DataTypes();
@@ -154,7 +154,7 @@ function TOGAF2Specif( xmlString, opts ) {
 					r['class'] = "RC-Collection";
 					break;
 				default: 
-					// The TOGAF element with tag  extensionElements  and title  <empty string>  has not been transformed.
+					// The Archimate element with tag  extensionElements  and title  <empty string>  has not been transformed.
 					console.warn('Element: Unknown xsi:type ', ty);
 					r['class'] = "RC-Folder";  // better than nothing!
 			};
@@ -176,7 +176,7 @@ function TOGAF2Specif( xmlString, opts ) {
 					}
 				);
 
-				// Store the TOGAF element-type:
+				// Store the Archimate element-type:
 				r.properties.push({
 					class: "PC-Type", 
 					value: opts.strNamespace+ty
@@ -242,7 +242,7 @@ function TOGAF2Specif( xmlString, opts ) {
 					s['class'] = "SC-isAssignedTo";
 					break;
 				default: 
-					// The TOGAF element with tag  extensionElements  and title  <empty string>  has not been transformed.
+					// The Archimate element with tag  extensionElements  and title  <empty string>  has not been transformed.
 					console.warn('Relationship: Unknown xsi:type ', ty)
 			};
 
@@ -334,7 +334,7 @@ function TOGAF2Specif( xmlString, opts ) {
 			
 			// ToDo: Add diagram reference (but we need the diagram, first).
 			
-			// Store the TOGAF viewpoint:
+			// Store the Archimate viewpoint:
 			let vp = vi.getAttribute('viewpoint');
 			if( vp )
 				r.properties.push({
@@ -373,7 +373,7 @@ function TOGAF2Specif( xmlString, opts ) {
 		changedAt: opts.fileDate
 	}];  */
 
-	console.debug('TOGAF',model);
+	console.debug('Archimate',model);
 	return model;
 
 
@@ -585,7 +585,7 @@ function TOGAF2Specif( xmlString, opts ) {
 		},{
 			// ToDo: Make more specific with respect to subjectClasses and objectClasses, if possible
 			id: "SC-isAssignedTo",
-			title: opts.strNamespace+"isAssignedTo",
+			title: "SpecIF:isAssignedTo",
 			description: "Statement: The allocation of responsibility, performance of behavior, or execution",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Actor", "RC-State", "RC-Event"],
@@ -593,7 +593,7 @@ function TOGAF2Specif( xmlString, opts ) {
 			changedAt: opts.fileDate
 		},{
 			id: "SC-isComposedOf",
-			title: opts.strNamespace+"isComposedOf",
+			title: "SpecIF:isComposedOf",
 			description: "Statement: A state (data-object) is composed of a state",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-State"],
@@ -601,7 +601,7 @@ function TOGAF2Specif( xmlString, opts ) {
 			changedAt: opts.fileDate
 		},{
 			id: "SC-isAggregatedBy",
-			title: opts.strNamespace+"isAggregatedBy",
+			title: "SpecIF:isAggregatedBy",
 			description: "Statement: A state (data-object) is aggregated by a state",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-State"],
@@ -609,7 +609,7 @@ function TOGAF2Specif( xmlString, opts ) {
 			changedAt: opts.fileDate
 		},{
 			id: "SC-isSpecializationOf",
-			title: opts.strNamespace+"isSpecializationOf",
+			title: "SpecIF:isSpecializationOf",
 			description: "Statement: A state (data-object) is a specialization of a state",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-State"],
@@ -625,7 +625,7 @@ function TOGAF2Specif( xmlString, opts ) {
 			changedAt: opts.fileDate
 		},{
 			id: "SC-serves",
-			title: opts.strNamespace+"serves",
+			title: "SpecIF:serves",
 			description: "Statement: An element provides its functionality to another element.",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Actor"],
@@ -633,7 +633,7 @@ function TOGAF2Specif( xmlString, opts ) {
 			changedAt: opts.fileDate
 		},{
 			id: "SC-influences",
-			title: opts.strNamespace+"influences",
+			title: "SpecIF:influences",
 			description: "Statement: An element affects the implementation or achievement of some motivation element.",
 			instantiation: ['auto'],
 			subjectClasses: ["RC-Actor","RC-State"],
