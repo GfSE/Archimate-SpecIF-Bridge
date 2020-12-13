@@ -13,9 +13,9 @@ function Archimate2Specif( xmlString, opts ) {
 		opts.title = opts.fileName.split(".")[0];
 	if( typeof(opts.titleLength)!='number' )
 		opts.titleLength = 96;
-	if( typeof(opts.descriptionLength)!='number' )
+/*	if( typeof(opts.descriptionLength)!='number' )
 		opts.descriptionLength = 8192;
-/*	if( !opts.mimeType ) 
+	if( !opts.mimeType ) 
 		opts.mimeType = "application/archimate+xml";
 	if( typeof(opts.isIE)!='boolean' )
 		opts.isIE = /MSIE |rv:11.0/i.test( navigator.userAgent ); */
@@ -470,16 +470,15 @@ function Archimate2Specif( xmlString, opts ) {
 		},{  */
 			id: "DT-ShortString",
 			title: "String ["+opts.titleLength+"]",
-			description: "String with length "+opts.titleLength,
 			type: "xs:string",
 			maxLength: opts.titleLength,
 			changedAt: opts.fileDate
 		},{
-			id: "DT-FormattedText",
-			title: "XHTML ["+opts.descriptionLength+"]",
-			description: "Formatted String with length "+opts.descriptionLength,
-			type: "xhtml",
-			maxLength: opts.descriptionLength,
+			id: "DT-Text",
+			title: "Text",
+		//	title: "String ["+opts.descriptionLength+"]",
+			type: "xs:string",
+		//	maxLength: opts.descriptionLength,
 			changedAt: opts.fileDate
 		}]
 	}
@@ -494,12 +493,12 @@ function Archimate2Specif( xmlString, opts ) {
 			},{
 				id: "PC-Text",
 				title: "dcterms:description",
-				dataType: "DT-FormattedText",
+				dataType: "DT-Text",
 				changedAt: opts.fileDate
 			},{
 				id: "PC-Diagram",
 				title: "SpecIF:Diagram",
-				dataType: "DT-FormattedText",
+				dataType: "DT-Text",
 				changedAt: opts.fileDate
 		/*	},{
 				id: "PC-Notation",
