@@ -21,12 +21,14 @@ function Archimate2Specif( xmlString, opts ) {
 	if( !opts.mimeType ) 
 		opts.mimeType = "application/archimate+xml"; */
 
-	if( !opts.resClassOutline ) 
+	if (!opts.strNamespace)
+		opts.strNamespace = "Archimate:";
+	if( !opts.resClassOutline )
 		opts.resClassOutline = 'SpecIF:Outline';
 	if( !opts.strFolderType ) 
 		opts.strFolderType = "SpecIF:Heading";
 	if( !opts.strDiagramType ) 
-		opts.strDiagramType = "Archimate:Viewpoint";
+		opts.strDiagramType = opts.strNamespace+"Viewpoint";
 	if( !opts.strDiagramFolderType ) 
 		opts.strDiagramFolderType = "SpecIF:Diagrams";
 	if( !opts.strGlossaryType ) 
@@ -43,8 +45,6 @@ function Archimate2Specif( xmlString, opts ) {
 		opts.strAnnotationFolder = "Text Annotations";
 	if( !opts.strRoleType ) 
 		opts.strRoleType = "SpecIF:Role";  */
-	if( !opts.strNamespace ) 
-		opts.strNamespace = "archimate:";
 	if( !Array.isArray(opts.hiddenDiagramProperties) )
 		opts.hiddenDiagramProperties = [];
 	
@@ -184,14 +184,15 @@ function Archimate2Specif( xmlString, opts ) {
 					}
 					// The view's nodes are hierarchically ordered: 
 					function storeShowsAndContainsStatements(nd,parentId) {
-						// ToDo: Extract nodes of xsi:type "Label" = Note elements
-						//       as well as xsi:type="Container" = Group
+						// Ignore visual elements of xsi:type="Label" (Note)
+						// as well as xsi:type="Container" (VisualGroup).
 
-						// This node is contained in the diagram in the outer loop;
-						// it is of xsi:type "Element".
-						// Ignore nodes of type "Label" used for annotations
-						let refId = nd.getAttribute('elementRef');
-						// Store a relation, it is assumed that the referred resource will be found later on:
+						let
+						//	ty = nd.getAttribute('xsi:type'),
+							refId = nd.getAttribute('elementRef');
+
+						// Only nodes of xsi:type="Element" have an 'elementRef'.
+						// Store a relation; it is assumed that the referred resource will be found later on:
 						if( refId ) {
 							addStaIfNotListed({
 								id: "S-"+simpleHash( "SC-shows"+dId+refId ),
@@ -200,18 +201,20 @@ function Archimate2Specif( xmlString, opts ) {
 								object: refId,
 								changedAt: opts.fileDate
 							});
+
 							// do it only for contained elements, but not for the top-level elements:
 							if( parentId ) 
 								storeContainsStatement(refId,parentId);
+
+							// step down, only nodes of xsi:type="Element" have child nodes:
+							Array.from(nd.children,
+								(ch) => {
+									if (ch.nodeName == 'node')
+										// the current element becomes parent of the next level:
+										storeShowsAndContainsStatements(ch, refId);
+								}
+							);
 						};
-						// step down:
-						Array.from( nd.children, 
-							(ch)=>{
-								if( ch.nodeName=='node' )
-									// the current element becomes parent on the next level:
-									storeShowsAndContainsStatements(ch,refId);
-							}
-						);
 					}
 
 				// Add attributes:
@@ -232,9 +235,15 @@ function Archimate2Specif( xmlString, opts ) {
 								});
 								break;
 							case 'node':
+								// A node is the graphical representation of an Element, Note or VisualGroup;
+								// so it is not stored as a SpecIF resource.
+								// However, any implicit relationships through graphical containment 
+								// will be discovered and stored, here:
 								storeShowsAndContainsStatements(ch);
 								break;
 							case 'connection':
+								// A connection is the graphical representation of a shown relationship;
+								// so it is not stored as a SpecIF statement.
 								// This connection is contained in the diagram's outer loop;
 								// they have xsi:type=relationship.
 								// ignore connections with xsi:type="line" used for annotations;
@@ -261,7 +270,7 @@ function Archimate2Specif( xmlString, opts ) {
 				if( vp ) 
 						r.properties.push({
 							class: "PC-Notation", 
-							value: vp+" Viewpoint"
+							value: vp
 						});
 				
 				// ToDo: Add image reference to the diagram resource (but we need to export/find the image, first);
@@ -1078,10 +1087,23 @@ function Archimate2Specif( xmlString, opts ) {
 		return false;	
 	}
 	function addStaIfNotListed(st) {
+		// There is a special case: When a principle realizes a goal and the principle is
+		// graphically contained in the goal, there are two 'contains' relationships in
+		// the opposite direction, thus contradictory.
+		// So, it is refrained from adding a new relationship, if there is one already
+		// for the respective model elements, no matter which direction.
+		// This is OK, because the first entry in based on an explicit relation and
+		// an entry based on graphical analysis is added later.
 		for( var i=model.statements.length-1;i>-1;i-- ) 
-			if( model.statements[i]["class"] == st["class"]
-				&& model.statements[i].subject == st.subject
-				&& model.statements[i].object == st.object ) return model.statements[i];
+			if(		model.statements[i]["class"] == st["class"]
+				&&	(
+						model.statements[i].subject == st.subject
+						&& model.statements[i].object == st.object
+					|| model.statements[i].subject == st.object
+						&& model.statements[i].object == st.subject
+					)
+			)
+					return model.statements[i];
 		// not found, so add:
 		model.statements.push( st );
 	//	return undefined
