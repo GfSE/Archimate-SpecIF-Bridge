@@ -14,13 +14,11 @@ function Archimate2Specif(xmlString, opts) {
 	if (typeof (opts) != 'object' || !opts.fileName) return null;
 	if (!opts.fileDate)
 		opts.fileDate = new Date().toISOString();
-	if (!opts.title)
-		opts.title = opts.fileName.split(".")[0];
 	if (typeof (opts.titleLength) != 'number')
 		opts.titleLength = 96;
-	/*	if( typeof(opts.descriptionLength)!='number' )
-			opts.descriptionLength = 8192;
-		if( !opts.mimeType ) 
+	if (typeof (opts.textLength) != 'number')
+		opts.textLength = 8192;
+	/*	if( !opts.mimeType ) 
 			opts.mimeType = "application/archimate+xml"; */
 
 	if (!opts.strNamespace)
@@ -90,7 +88,7 @@ function Archimate2Specif(xmlString, opts) {
 	model.resources = [];
 	model.statements = [];
 
-	// Reference the original Archimate Open Exchange file:
+	// Include the original Archimate Open Exchange file:
 	model.files = [ /*{
 		id: 'F-'+simpleHash(opts.fileName),
 		title: opts.fileName,
@@ -104,10 +102,10 @@ function Archimate2Specif(xmlString, opts) {
 		(ch) => {
 			switch (ch.nodeName) {
 				case 'name':
-					model.title = ch.innerHTML;
+					model.title = truncStr(ch.innerHTML || opts.title || opts.fileName.split(".")[0], opts.titleLength, 'Title of model');
 					break;
 				case 'documentation':
-					model.description = ch.innerHTML
+					model.description = truncStr(ch.innerHTML, opts.textLength, 'Description of model');
 			}
 		}
 	);
@@ -152,7 +150,7 @@ function Archimate2Specif(xmlString, opts) {
 				};
 			}
 			else
-				console.warn("Archimate propertyDefinition of type '" + ty + "' has been skipped.");
+				console.warn("Skipping Archimate propertyDefinition of type '" + ty + "'.");
 		}
 	);
 //	console.debug('propertyDefinitions', propertyDefinitions, model.propertyClasses);
@@ -193,7 +191,9 @@ function Archimate2Specif(xmlString, opts) {
 					let pCId = pr.getAttribute('propertyDefinitionRef'),
 						val = getChildsInnerByTag(pr, 'value');
 
-					if (pCId && val)
+					if (pCId && val) {
+						val = truncStr(val, opts.titleLength, 'Property value ' + pCId + ' of element with id ' + res.id);
+
 						switch (pCId) {
 							// Discover native properties and assign the value to those,
 							// e.g.: Author, Last editor, Creation date, Date of last change.
@@ -221,7 +221,7 @@ function Archimate2Specif(xmlString, opts) {
 								// In fact, execution gets here only and the if condition fails, 
 								// only if the property is defined for a view, but set to 'false'.
 								let pCi = indexById(model.propertyClasses, pCId);
-								if ( pCi > -1) {
+								if (pCi > -1) {
 									// Due to an error in ADOIT export it has been observed that a property has been listed twice
 									// with different, but substantially equivalent propertyClasses.
 									// So we store a property only, if it's propertyClass is different in terms of title and dataType
@@ -230,15 +230,15 @@ function Archimate2Specif(xmlString, opts) {
 									// would have two property values with the same propertyClass, which is not permissible according
 									// to the schema.
 									// If it is necessary to keep all properties, set opts.propertyClassesShallHaveDifferentTitles to 'true'.
-									function isReferenced(cl,pL) {
-										for (var p of pL) if (cl.id==p['class']) return true;
+									function isReferenced(cl, pL) {
+										for (var p of pL) if (cl.id == p['class']) return true;
 										return false;
-                                    }
+									}
 									let nPC = model.propertyClasses[pCi],
 										pCs = model.propertyClasses
-												.filter(
-													(pC) => { return isReferenced(pC,res.properties) && pC.dataType==nPC.dataType && pC.title==nPC.title}
-												);
+											.filter(
+												(pC) => { return isReferenced(pC, res.properties) && pC.dataType == nPC.dataType && pC.title == nPC.title }
+											);
 									if (pCs.length < 1) {
 										// This resource res does not have another property with essentially the same propertyClass as nPC, yet
 
@@ -253,6 +253,7 @@ function Archimate2Specif(xmlString, opts) {
 									}
 								};
 						};
+					};
 				};
 			}
 		);
@@ -341,16 +342,16 @@ function Archimate2Specif(xmlString, opts) {
 					(ch) => {
 						switch (ch.nodeName) {
 							case 'name':
-								diag.title = ch.innerHTML;
-								diag.properties.push({
+								diag.title = truncStr(ch.innerHTML, opts.titleLength, 'Title of diagram with id '+diag.id);
+							/*	diag.properties.push({
 									class: "PC-Name",
-									value: ch.innerHTML
-								});
+									value: diag.title
+								}); */
 								break;
 							case 'documentation':
 								diag.properties.push({
 									class: "PC-Description",
-									value: ch.innerHTML
+									value: truncStr(ch.innerHTML, opts.textLength, 'Description of diagram with id ' + diag.id)
 								});
 								break;
 							case 'properties':
@@ -500,6 +501,7 @@ function Archimate2Specif(xmlString, opts) {
 				case "WorkPackage":
 				case "Deliverable":
 				case "Plateau":
+				case "Gap":
 				case "Outcome":
 				case "Principle":
 				case "Meaning":
@@ -534,17 +536,17 @@ function Archimate2Specif(xmlString, opts) {
 					(ch) => {
 						switch (ch.nodeName) {
 							case 'name':
-								r.title = ch.innerHTML;
-								r.properties.push({
+								r.title = truncStr(ch.innerHTML, opts.titleLength, 'Title of resource with id ' + r.id);
+							/*	r.properties.push({
 									class: "PC-Name",
-									value: ch.innerHTML
-								})
+									value: r.title
+								}); */
 								break;
 							case 'documentation':
 								r.properties.push({
 									class: "PC-Description",
-									value: ch.innerHTML
-								})
+									value: truncStr(ch.innerHTML, opts.textLength, 'Description of resource with id ' + r.id)
+								});
 						};
 					}
 				);
@@ -589,9 +591,13 @@ function Archimate2Specif(xmlString, opts) {
 					switch (rs.getAttribute('accessType')) {
 						case 'Write':
 							s['class'] = "SC-writes";
-							break
+							break;
 						case 'Read':
 							s['class'] = "SC-reads";
+							break;
+						case 'ReadWrite':
+						case 'Access':
+							s['class'] = "SC-stores";
 					};
 					break;
 				case 'Serving':
@@ -607,13 +613,13 @@ function Archimate2Specif(xmlString, opts) {
 					break;
 				// The "uniting" relationships:
 				case 'Composition':
-				//		s['class'] = "SC-isComposedOf";
+				//	s['class'] = "SC-isComposedOf";
 				case 'Aggregation':
-				//		s['class'] = "SC-isAggregatedBy";
+				//	s['class'] = "SC-isAggregatedBy";
 				case 'Realization':
-				//		s['class'] = "SC-realizes";
+				//	s['class'] = "SC-realizes";
 				case 'Assignment':
-				//		s['class'] = "SC-isAssignedTo";
+				//	s['class'] = "SC-isAssignedTo";
 					s['class'] = "SC-contains";
 					break;
 				case 'Specialization':
@@ -642,10 +648,14 @@ function Archimate2Specif(xmlString, opts) {
 					(ch) => {
 						switch (ch.nodeName) {
 							case 'name':
-								s.title = ch.innerHTML;
+								s.title = truncStr(ch.innerHTML, opts.titleLength, 'Title of statement with id ' + s.id);
 								break;
 							case 'documentation':
-								s.description = ch.innerHTML
+								s.description = truncStr(ch.innerHTML, opts.textLength, 'Description of statement with id ' + s.id);
+							/*	s.properties.push({
+									class: "PC-Description",
+									value: s.description
+								}); */
 						}
 					}
 				);
@@ -740,9 +750,9 @@ function Archimate2Specif(xmlString, opts) {
 		title: model.title,
 		class: idResourceClassFolder,
 		properties: [{
-			class: "PC-Name",
+		/*	class: "PC-Name",
 			value: model.title
-		},{
+		},{ */
 			class: "PC-Description",
 			value: model.description || ''
 		},{
@@ -769,10 +779,10 @@ function Archimate2Specif(xmlString, opts) {
 				class: idResourceClassFolder,
 				title: opts.strDiagramFolderType,
 				properties: [{
-					class: "PC-Name",
+				/*	class: "PC-Name",
 					value: opts.strDiagramFolderType
 				}, {
-			/*		class: "PC-Description",
+					class: "PC-Description",
 					value: getChildsInnerByTag(ch, "documentation") || ''
 				}, { */
 					class: "PC-Type",
@@ -799,18 +809,22 @@ function Archimate2Specif(xmlString, opts) {
 
 			function createFolderWithNode(ch, rL, nL) {
 				let ti = getChildsInnerByTag(ch, "label"),
+					dsc = getChildsInnerByTag(ch, "documentation") || '',
 					idRef = "Folder-" + simpleHash(ti + apx);
+
+				ti = truncStr(ti, opts.titleLength, 'Title of folder with id ' + idRef);
+
 				// create the folder resource:
 				rL.push({
 					id: idRef,
 					class: idResourceClassFolder,
 					title: ti,
 					properties: [{
-						class: "PC-Name",
+					/*	class: "PC-Name",
 						value: ti
-					}, {
+					}, { */
 						class: "PC-Description",
-						value: getChildsInnerByTag(ch, "documentation") || ''
+						value: truncStr(dsc, opts.textLength, 'Description of folder with id ' + idRef)
 					}, {
 						class: "PC-Type",
 						value: opts.strFolderType
@@ -1131,15 +1145,16 @@ function Archimate2Specif(xmlString, opts) {
 			subjectClasses: [idResourceClassActor, idResourceClassEvent],
 			objectClasses: [idResourceClassState],
 			changedAt: opts.fileDate
-	/*	},{
+		},{
 			id: "SC-stores",
 			title: "SpecIF:stores",
 			description: "Statement: Actor (Role, Function) writes and reads State (Information).",
 			instantiation: ["auto"],
-			subjectClasses: [idResourceClassActor],
+			propertyClasses: ["PC-Type"],
+			subjectClasses: [idResourceClassActor, idResourceClassEvent],
 			objectClasses: [idResourceClassState],
 			changedAt: opts.fileDate
-		},{
+	/*	},{
 			id: "SC-isComposedOf",
 			title: "UML:Composition",
 			description: "Statement: A state (data-object) is composed of a state",
@@ -1280,6 +1295,13 @@ function Archimate2Specif(xmlString, opts) {
 			if( l.nodeName==tag ) return l.innerHTML;
 		};
 		return "";
+	}
+	function truncStr(orig, mxLen, errT) {
+		if (orig && orig.length > mxLen) {
+			console.warn(errT + ' has been truncated because it is too long');
+			return orig.slice(0, mxLen)
+		};
+		return orig;
 	}
 	function isShown(item) {
 		// Some Archimate structural relationships ("uniting") can be implicit and are accepted:
